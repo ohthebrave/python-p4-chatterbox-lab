@@ -14,13 +14,47 @@ migrate = Migrate(app, db)
 
 db.init_app(app)
 
-@app.route('/messages')
+@app.route('/messages', methods=['GET', 'POST'])
 def messages():
-    return ''
+    if request.method == 'GET':
+        chatter_messages = [message.to_dict() for message in Message.query.order_by('created_at').all()]
 
-@app.route('/messages/<int:id>')
+        return make_response(jsonify(chatter_messages), 200)
+    
+    elif request.method == 'POST':
+        data = request.get_json()
+        new_message = Message(
+            body=data['body'],
+            username=data['username']
+        )
+        db.session.add(new_message)
+        db.session.commit()
+
+        return make_response(jsonify(new_message.to_dict()), 201)
+
+@app.route('/messages/<int:id>', methods=['PATCH', 'DELETE'])
 def messages_by_id(id):
-    return ''
+    message_by_id = Message.query.filter_by(id=id).first()
+    
+    if request.method == 'PATCH':
+        data = request.get_json()
+        for attr in data:
+            setattr(message_by_id, attr, data[attr])
+
+        db.session.add(message_by_id)
+        db.session.commit()
+
+        return make_response(message_by_id.to_dict(), 200)
+    
+    elif request.method == 'DELETE':
+        db.session.delete(message_by_id)
+        db.session.commit()
+
+        response_body={
+            'message':'Message deleted.'
+        }
+
+        return make_response(response_body, 200)
 
 if __name__ == '__main__':
-    app.run(port=5555)
+    app.run(port=8000,debug=True)
